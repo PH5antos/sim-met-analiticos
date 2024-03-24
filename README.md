@@ -1,1 +1,1 @@
-simulador simples para cadeira de simulação e métodos analíticos
+simulador de fila simples para cadeira de simulação e métodos analíticos
