@@ -1,3 +1,4 @@
+import java.util.Scanner;
 import java.util.ArrayList;
 
 public class Simulador{
@@ -7,106 +8,146 @@ public class Simulador{
   public static final long     M           = 194856;
   public static       long     previous    = ((a * seed + c) % M);
 
-  public static final int      K           = 5;
-  public static final int      servidores  = 1;
+  public static ArrayList<Fila> filaLista = new ArrayList<Fila>();
+  public static Escalonador escalonador = new Escalonador();
 
-  public static       int      filaCount   = 0;
-  public static       int      perdas      = 0;
-
-  public static       double   TempoGlobal = 0.0;
-  public static       double[] times       = new double[K+1];
-
-  public static final int      chegadaMin  = 2;
-  public static final int      chegadaMax  = 5;
-  public static final int      saidaMin    = 3;
-  public static final int      saidaMax    = 5;
-
-  public static ArrayList<Evento> Escalonador = new ArrayList<Evento>();
-
-  enum TipoEvento {
-    Chegada,
-    Saida
-  }
-  
-  static class Evento{
-    TipoEvento tipoEvento;
-    double tempo;
-
-    public Evento(TipoEvento tipoEvento) {
-      this.tipoEvento = tipoEvento;
-
-      if (tipoEvento == TipoEvento.Chegada) {
-        tempo = ((chegadaMax - chegadaMin) * NextRandom() + chegadaMin) + TempoGlobal;
-        return;
-      }
-      tempo = ((saidaMax - saidaMin) * NextRandom() + saidaMin) + TempoGlobal;
-    }
-  }
+  public static double tempoGlobal = 0.0;
   
   public static void main(String[] args){
-    Escalonador.add(new Evento(TipoEvento.Chegada));
-    Escalonador.get(0).tempo = 2.0;
+    init();
+
+    escalonador.add(new Evento(TipoEvento.Chegada, 1.5));
     
-    int count = 1000;
+    int count = 100000;
     while (count-- > 0) {
-      Evento evento = NextEvent();
-
-      if (evento.tipoEvento == TipoEvento.Chegada) {
-        Chegada(evento.tempo);
-        continue;
+      Evento evento = escalonador.getNext();
+      
+      if (evento.getTipoEvento() == TipoEvento.Chegada) {
+        Chegada(evento);
       }
-      Saida(evento.tempo);
+      else if (evento.getTipoEvento() == TipoEvento.Saida) {
+        Saida(evento);
+      }
+      else if (evento.getTipoEvento() == TipoEvento.Passagem) {
+        Passagem(evento);
+      }
     }
 
-    System.out.println("Tempo global: " + TempoGlobal + "\n");
-    for (int i = 0; i < K+1; i++) {
-      System.out.println(i + ": " + times[i] + " (" + times[i]/TempoGlobal*100 + "%)");
+
+    System.out.println("\n---------- Simulacao ------------");
+    System.out.println("Tempo global: " + tempoGlobal);
+
+    for (int i = 0; i < filaLista.size(); ++i) {
+      System.out.println("\n----- Fila " + (i + 1) + " -----");
+
+      double[] times = filaLista.get(i).getTimes();
+
+      for (int j = 0; j < filaLista.get(i).capacity() + 1; j++) {
+        System.out.println(j + ": " + times[j] + " (" + times[j] / tempoGlobal * 100 + "%)");
+      }
+
+      System.out.println("\nClientes perdidos: " + filaLista.get(i).loss());
     }
-    System.out.println("\nClientes perdidos: " + perdas);
+    System.out.println("----------  FIM  ----------");
   }
 
-  public static double NextRandom() {
-    previous = ((a * previous + c) % M);
-    return (double) previous/M;
-  }
+  public static void init() {
+    Scanner scanner = new Scanner(System.in);
 
-  // otimizar: auto sorting?
-  public static Evento NextEvent() {
-    Evento next = Escalonador.get(0);
-    for (Evento current : Escalonador) {
-      if (current.tempo < next.tempo) next = current;
+    double minArrival = 0, maxArrival = 0, MinService, MaxService;
+    int servers, capacity, numeroFilas = 2;
+
+    //System.out.println("Informe o numero de filas");
+    //numeroFilas = Integer.parseInt(scanner.nextLine());
+
+    for (int i = 0; i < numeroFilas; ++i) {
+      System.out.println("----- Fila" + (i + 1) + " -----");
+      System.out.println("Informe o numero de servidores");
+      servers = Integer.parseInt(scanner.nextLine());
+      System.out.println("Informe a capacidade");
+      capacity = Integer.parseInt(scanner.nextLine());
+      if (i == 0) {
+        System.out.println("Informe o MinArrival");
+        minArrival = Double.parseDouble(scanner.nextLine());
+        System.out.println("Informe o MaxArrival");
+        maxArrival = Double.parseDouble(scanner.nextLine());
+      }
+      System.out.println("Informe o MinService");
+      MinService = Double.parseDouble(scanner.nextLine());
+      System.out.println("Informe o MaxService");
+      MaxService = Double.parseDouble(scanner.nextLine());
+
+      filaLista.add(new Fila(servers, capacity, minArrival, maxArrival, MinService, MaxService));
     }
-    Escalonador.remove(next);
-    return next;
+
+    scanner.close();
   }
 
-  public static void Chegada(double tempo) {
-    AtualizaTempo(tempo);
-
-    if (filaCount < K) {
-      ++filaCount;
-      if (filaCount <= servidores) {
-        Escalonador.add(new Evento(TipoEvento.Saida));
+  public static void Chegada(Evento evento) {
+    AtualizaTempo(evento.getTempo());
+    
+    if (filaLista.get(0).status() < filaLista.get(0).capacity()) {
+      filaLista.get(0).in();
+      if (filaLista.get(0).status() <= filaLista.get(0).servers()) {
+        escalonador.add(new Evento(TipoEvento.Passagem, nextEventTime(TipoEvento.Passagem)));
       }
     }
     else {
-      ++perdas;
+      filaLista.get(0).loss();
     }
-    Escalonador.add(new Evento(TipoEvento.Chegada));
+    escalonador.add(new Evento(TipoEvento.Chegada, nextEventTime(TipoEvento.Chegada)));
   }
   
-  public static void Saida(double tempo) {
-    AtualizaTempo(tempo);
-
-    --filaCount;
-    if (filaCount >= servidores) {
-      Escalonador.add(new Evento(TipoEvento.Saida));
+  public static void Saida(Evento evento) {
+    AtualizaTempo(evento.getTempo());
+    
+    filaLista.get(1).out();
+    if (filaLista.get(1).status() >= filaLista.get(1).servers()) {
+      escalonador.add(new Evento(TipoEvento.Saida, nextEventTime(TipoEvento.Saida)));
+    }
+  }
+  
+  public static void Passagem(Evento evento) {
+    AtualizaTempo(evento.getTempo());
+    
+    filaLista.get(0).out();
+    if (filaLista.get(0).status() >= filaLista.get(0).servers()) {
+      escalonador.add(new Evento(TipoEvento.Passagem, nextEventTime(TipoEvento.Passagem)));
+    }
+    if (filaLista.get(1).status() < filaLista.get(1).capacity()) {
+      filaLista.get(1).in();
+      if (filaLista.get(1).status() <= filaLista.get(1).servers()) {
+        escalonador.add(new Evento(TipoEvento.Saida, nextEventTime(TipoEvento.Saida)));
+      }
+    }
+    else {
+      filaLista.get(1).loss();
     }
   }
   
   public static void AtualizaTempo(double tempo) {
-    times[filaCount] += tempo - TempoGlobal;
+    for (Fila fila : filaLista) {
+      fila.updateTimes(tempo, tempoGlobal);
+    }
+    
+    tempoGlobal = tempo;
+  }
 
-    TempoGlobal = tempo;
+  public static double nextEventTime(TipoEvento tipoEvento) {
+    if (tipoEvento == TipoEvento.Chegada) {
+      return ((filaLista.get(0).getMaxArrival() - filaLista.get(0).getMinArrival()) * nextRandom() + filaLista.get(0).getMinArrival()) + tempoGlobal;
+    }
+    else if (tipoEvento == TipoEvento.Saida) {
+      return ((filaLista.get(1).getMaxService() - filaLista.get(1).getMinService()) * nextRandom() + filaLista.get(1).getMinService()) + tempoGlobal;
+    }
+    else if (tipoEvento == TipoEvento.Passagem) {
+      return ((filaLista.get(0).getMaxService() - filaLista.get(0).getMinService()) * nextRandom() + filaLista.get(0).getMinService()) + tempoGlobal;
+    }
+    return -1.0;
+  }
+
+  public static double nextRandom() {
+    previous = ((a * previous + c) % M);
+    return (double) previous/M;
   }
 }
