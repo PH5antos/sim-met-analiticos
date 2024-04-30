@@ -9,17 +9,16 @@ public class Simulador{
   public static       long     previous    = ((a * seed + c) % M);
 
   public static ArrayList<Fila> filaLista = new ArrayList<Fila>();
+  public static ArrayList<Transicao> transicaoLista = new ArrayList<Transicao>();
   public static Escalonador escalonador = new Escalonador();
 
   public static double tempoGlobal = 0.0;
+  public static int randomCount = 100000;
   
   public static void main(String[] args){
     init();
-
-    escalonador.add(new Evento(TipoEvento.Chegada, 1.5));
     
-    int count = 100000;
-    while (count-- > 0) {
+    while (randomCount-- > 0) {
       Evento evento = escalonador.getNext();
       
       if (evento.getTipoEvento() == TipoEvento.Chegada) {
@@ -52,6 +51,7 @@ public class Simulador{
   }
 
   public static void init() {
+    /*
     Scanner scanner = new Scanner(System.in);
 
     double minArrival = 0, maxArrival = 0, MinService, MaxService;
@@ -81,47 +81,67 @@ public class Simulador{
     }
 
     scanner.close();
+    */
+
+    filaLista.add(new Fila(1, 10, 2, 4, 1, 2));
+    filaLista.add(new Fila(2, 5, 0, 0, 4, 8));
+    filaLista.add(new Fila(2, 10, 0, 0, 5, 15));
+
+    transicaoLista.add(new Transicao(0, 1, 0.8, TipoEvento.Passagem));
+    transicaoLista.add(new Transicao(0, 2, 0.2, TipoEvento.Passagem));
+
+    transicaoLista.add(new Transicao(1, 0, 0.3, TipoEvento.Passagem));
+    transicaoLista.add(new Transicao(1, 1, 0.5, TipoEvento.Passagem));
+    transicaoLista.add(new Transicao(1, -1, 0.2, TipoEvento.Saida));
+
+    transicaoLista.add(new Transicao(2, 2, 0.7, TipoEvento.Passagem));
+    transicaoLista.add(new Transicao(2, -1, 0.3, TipoEvento.Saida));
+
+    transicaoLista.sort((obj1, obj2) -> Double.compare(obj1.getProbabilidade(), obj2.getProbabilidade()));
+
+
+    escalonador.add(new Evento(TipoEvento.Chegada, 2.0, -1, 0));
   }
 
   public static void Chegada(Evento evento) {
     AtualizaTempo(evento.getTempo());
     
-    if (filaLista.get(0).status() < filaLista.get(0).capacity()) {
-      filaLista.get(0).in();
-      if (filaLista.get(0).status() <= filaLista.get(0).servers()) {
-        escalonador.add(new Evento(TipoEvento.Passagem, nextEventTime(TipoEvento.Passagem)));
+    if (filaLista.get(evento.getIdDestino()).status() < filaLista.get(evento.getIdDestino()).capacity()) {
+      filaLista.get(evento.getIdDestino()).in();
+      if (filaLista.get(evento.getIdDestino()).status() <= filaLista.get(evento.getIdDestino()).servers()) {
+        defineCaminho(evento.getIdDestino());
       }
     }
     else {
-      filaLista.get(0).loss();
+      filaLista.get(evento.getIdDestino()).loss();
     }
-    escalonador.add(new Evento(TipoEvento.Chegada, nextEventTime(TipoEvento.Chegada)));
+    escalonador.add(new Evento(TipoEvento.Chegada, nextEventTime(evento), evento.getIdOrigem(), evento.getIdDestino()));
   }
   
   public static void Saida(Evento evento) {
     AtualizaTempo(evento.getTempo());
     
-    filaLista.get(1).out();
-    if (filaLista.get(1).status() >= filaLista.get(1).servers()) {
-      escalonador.add(new Evento(TipoEvento.Saida, nextEventTime(TipoEvento.Saida)));
+    filaLista.get(evento.getIdOrigem()).out();
+    if (filaLista.get(evento.getIdOrigem()).status() >= filaLista.get(evento.getIdOrigem()).servers()) {
+      escalonador.add(new Evento(TipoEvento.Saida, nextEventTime(evento), evento.getIdOrigem(), evento.getIdDestino()));
     }
   }
   
   public static void Passagem(Evento evento) {
     AtualizaTempo(evento.getTempo());
     
-    filaLista.get(0).out();
-    if (filaLista.get(0).status() >= filaLista.get(0).servers()) {
-      escalonador.add(new Evento(TipoEvento.Passagem, nextEventTime(TipoEvento.Passagem)));
+    filaLista.get(evento.getIdOrigem()).out();
+    if (filaLista.get(evento.getIdOrigem()).status() >= filaLista.get(evento.getIdOrigem()).servers()) {
+      escalonador.add(new Evento(TipoEvento.Passagem, nextEventTime(evento), evento.getIdOrigem(), evento.getIdDestino()));
     }
-    if (filaLista.get(1).status() < filaLista.get(1).capacity()) {
-      filaLista.get(1).in();
-      if (filaLista.get(1).status() <= filaLista.get(1).servers()) {
-        escalonador.add(new Evento(TipoEvento.Saida, nextEventTime(TipoEvento.Saida)));
+    if (filaLista.get(evento.getIdDestino()).status() < filaLista.get(evento.getIdDestino()).capacity()) {
+      filaLista.get(evento.getIdDestino()).in();
+      if (filaLista.get(evento.getIdDestino()).status() <= filaLista.get(evento.getIdDestino()).servers()) {
+        defineCaminho(evento.getIdDestino());
       }
     }
     else {
-      filaLista.get(1).loss();
+      filaLista.get(evento.getIdDestino()).loss();
     }
   }
   
@@ -133,15 +153,15 @@ public class Simulador{
     tempoGlobal = tempo;
   }
 
-  public static double nextEventTime(TipoEvento tipoEvento) {
-    if (tipoEvento == TipoEvento.Chegada) {
-      return ((filaLista.get(0).getMaxArrival() - filaLista.get(0).getMinArrival()) * nextRandom() + filaLista.get(0).getMinArrival()) + tempoGlobal;
+  public static double nextEventTime(Evento evento) {
+    if (evento.getTipoEvento() == TipoEvento.Chegada) {
+      return ((filaLista.get(evento.getIdDestino()).getMaxArrival() - filaLista.get(evento.getIdDestino()).getMinArrival()) * nextRandom() + filaLista.get(evento.getIdDestino()).getMinArrival()) + tempoGlobal;
     }
-    else if (tipoEvento == TipoEvento.Saida) {
-      return ((filaLista.get(1).getMaxService() - filaLista.get(1).getMinService()) * nextRandom() + filaLista.get(1).getMinService()) + tempoGlobal;
+    else if (evento.getTipoEvento() == TipoEvento.Saida) {
+      return ((filaLista.get(evento.getIdOrigem()).getMaxService() - filaLista.get(evento.getIdOrigem()).getMinService()) * nextRandom() + filaLista.get(evento.getIdOrigem()).getMinService()) + tempoGlobal;
     }
-    else if (tipoEvento == TipoEvento.Passagem) {
-      return ((filaLista.get(0).getMaxService() - filaLista.get(0).getMinService()) * nextRandom() + filaLista.get(0).getMinService()) + tempoGlobal;
+    else if (evento.getTipoEvento() == TipoEvento.Passagem) {
+      return ((filaLista.get(evento.getIdOrigem()).getMaxService() - filaLista.get(evento.getIdOrigem()).getMinService()) * nextRandom() + filaLista.get(evento.getIdOrigem()).getMinService()) + tempoGlobal;
     }
     return -1.0;
   }
@@ -149,5 +169,18 @@ public class Simulador{
   public static double nextRandom() {
     previous = ((a * previous + c) % M);
     return (double) previous/M;
+  }
+
+  public static void defineCaminho(int idFila) {
+    double prob = nextRandom(), sum = 0.0;
+    for (Transicao transicao : transicaoLista) {
+      if (idFila == transicao.getIdOrigem()) {
+        sum += transicao.getProbabilidade();
+        if (prob < sum) {
+          escalonador.add(new Evento(transicao.getTipoEvento(), nextEventTime(new Evento(transicao.getTipoEvento(), 0.0, transicao.getIdOrigem(), transicao.getIdDestino())), transicao.getIdOrigem(), transicao.getIdDestino()));
+          break;
+        }
+      }
+    }
   }
 }
