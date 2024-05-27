@@ -1,4 +1,3 @@
-import java.util.Scanner;
 import java.util.ArrayList;
 
 public class Simulador{
@@ -51,37 +50,8 @@ public class Simulador{
   }
 
   public static void init() {
-    /*
-    Scanner scanner = new Scanner(System.in);
-
-    double minArrival = 0, maxArrival = 0, MinService, MaxService;
-    int servers, capacity, numeroFilas = 2;
-
-    //System.out.println("Informe o numero de filas");
-    //numeroFilas = Integer.parseInt(scanner.nextLine());
-
-    for (int i = 0; i < numeroFilas; ++i) {
-      System.out.println("----- Fila" + (i + 1) + " -----");
-      System.out.println("Informe o numero de servidores");
-      servers = Integer.parseInt(scanner.nextLine());
-      System.out.println("Informe a capacidade");
-      capacity = Integer.parseInt(scanner.nextLine());
-      if (i == 0) {
-        System.out.println("Informe o MinArrival");
-        minArrival = Double.parseDouble(scanner.nextLine());
-        System.out.println("Informe o MaxArrival");
-        maxArrival = Double.parseDouble(scanner.nextLine());
-      }
-      System.out.println("Informe o MinService");
-      MinService = Double.parseDouble(scanner.nextLine());
-      System.out.println("Informe o MaxService");
-      MaxService = Double.parseDouble(scanner.nextLine());
-
-      filaLista.add(new Fila(servers, capacity, minArrival, maxArrival, MinService, MaxService));
-    }
-
-    scanner.close();
-    */
+    
+    //read input
 
     filaLista.add(new Fila(1, 10, 2, 4, 1, 2));
     filaLista.add(new Fila(2, 5, 0, 0, 4, 8));
@@ -98,7 +68,6 @@ public class Simulador{
     transicaoLista.add(new Transicao(2, -1, 0.3, TipoEvento.Saida));
 
     transicaoLista.sort((obj1, obj2) -> Double.compare(obj1.getProbabilidade(), obj2.getProbabilidade()));
-
 
     escalonador.add(new Evento(TipoEvento.Chegada, 2.0, -1, 0));
   }
